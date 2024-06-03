@@ -21,8 +21,8 @@ namespace UsefulPaths
         internal const string ModVersion = "1.0.0";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
-        private static string ConfigFileName = ModGUID + ".cfg";
-        private static string ConfigFileFullPath = Paths.ConfigPath + Path.DirectorySeparatorChar + ConfigFileName;
+        private static readonly string ConfigFileName = ModGUID + ".cfg";
+        private static readonly string ConfigFileFullPath = Paths.ConfigPath + Path.DirectorySeparatorChar + ConfigFileName;
         internal static string ConnectionError = "";
         private readonly Harmony _harmony = new(ModGUID);
         public static readonly ManualLogSource UsefulPathsLogger = BepInEx.Logging.Logger.CreateLogSource(ModName);
@@ -47,7 +47,7 @@ namespace UsefulPaths
                 "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
 
-            m_update = config("2 - Settings", "Update Timer", 1f,
+            m_update = config("2 - Settings", "Update Rate", 1f,
                 new ConfigDescription("Set the rate to check terrain", new AcceptableValueRange<float>(1f, 10f)));
             m_enabled = config("2 - Settings", "Enabled", Toggle.On, "If on, plugin is active and enabled");
 
