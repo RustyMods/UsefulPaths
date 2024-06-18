@@ -18,7 +18,7 @@ namespace UsefulPaths
     public class UsefulPathsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "UsefulPaths";
-        internal const string ModVersion = "1.0.0";
+        internal const string ModVersion = "1.0.1";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -30,7 +30,7 @@ namespace UsefulPaths
             { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
         private static UsefulPathsPlugin _Plugin = null!;
         public enum Toggle { On = 1, Off = 0 }
-        
+
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_speed = new();
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_staminaRegen = new();
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_runStaminaDrain = new();
@@ -41,15 +41,17 @@ namespace UsefulPaths
         public static ConfigEntry<float> m_update = null!;
         public static ConfigEntry<Toggle> m_enabled = null!;
 
+        public static ConfigEntry<Toggle> m_showIcon = null!;
+
         private void InitConfigs()
         {
             _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On,
                 "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
-
             m_update = config("2 - Settings", "Update Rate", 1f,
                 new ConfigDescription("Set the rate to check terrain", new AcceptableValueRange<float>(1f, 10f)));
             m_enabled = config("2 - Settings", "Enabled", Toggle.On, "If on, plugin is active and enabled");
+            m_showIcon = config("2 - Settings", "Display Icon", Toggle.On, "If on, status effect will be displayed on HUD");
 
             foreach (GroundTypes type in Enum.GetValues(typeof(GroundTypes)))
             {
@@ -89,7 +91,7 @@ namespace UsefulPaths
         private void Update()
         {
             float dt = Time.deltaTime;
-            TerrainManager.UpdateStatusEffect(dt);
+            Managers.UsefulPaths.UpdateStatusEffect(dt);
         }
 
         private void OnDestroy()

@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace UsefulPaths.Managers;
 
-public static class TerrainManager
+public static class UsefulPaths
 {
     [HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
     private static class Register_AirJordan
@@ -12,9 +12,9 @@ public static class TerrainManager
         private static void Postfix(ObjectDB __instance)
         {
             if (!__instance || !ZNetScene.instance) return;
-            var airJordan = ScriptableObject.CreateInstance<AirJordan>();
+            AirJordan airJordan = ScriptableObject.CreateInstance<AirJordan>();
             airJordan.name = "SE_AirJordan";
-            airJordan.m_icon = null;
+            airJordan.m_icon = SpriteManager.WingedBoots;
             
             if (__instance.m_StatusEffects.Contains(airJordan)) return;
             __instance.m_StatusEffects.Add(airJordan);
@@ -26,14 +26,15 @@ public static class TerrainManager
     {
         private static void Postfix(TextsDialog __instance)
         {
+            if (UsefulPathsPlugin.m_showIcon.Value is UsefulPathsPlugin.Toggle.On) return;
             if (!Player.m_localPlayer.GetSEMan().HaveStatusEffect("SE_AirJordan".GetStableHashCode())) return;
             string texts = __instance.m_texts[0].m_text;
-
+    
             var se = Player.m_localPlayer.GetSEMan().GetStatusEffect("SE_AirJordan".GetStableHashCode());
             
-            texts += $"<color=orange>Useful Paths: {se.m_name}</color>\n";
+            texts += $"\n<color=orange>Useful Paths: {se.m_name}</color>\n";
             texts += se.GetTooltipString();
-
+    
             __instance.m_texts[0].m_text = texts;
         }
     }
@@ -115,13 +116,13 @@ public class AirJordan : StatusEffect
         
         m_terrain = GetTerrain();
         m_name = m_terrain is GroundTypes.None ? "" : m_terrain.ToString();
+        m_icon = UsefulPathsPlugin.m_showIcon.Value is UsefulPathsPlugin.Toggle.On ? m_terrain is GroundTypes.None ? null : SpriteManager.WingedBoots : null;
     }
 
     public override string GetTooltipString()
     {
         if (m_terrain is GroundTypes.None) return "";
         StringBuilder stringBuilder = new StringBuilder();
-        
         stringBuilder.Append(FormatTooltip("$item_movement_modifier", GetSpeedModifier(m_terrain)));
         stringBuilder.Append(FormatTooltip("$se_runstamina", GetRunStaminaDrain(m_terrain)));
         stringBuilder.Append(FormatTooltip("$se_staminaregen", GetStaminaRegen(m_terrain)));
@@ -234,13 +235,13 @@ public class AirJordan : StatusEffect
 
         if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround)
         {
-            var paint = GetPaintType(component.m_character);
+            TerrainModifier.PaintType paint = GetPaintType(component.m_character);
             return paint switch
             {   
                 TerrainModifier.PaintType.Dirt => GroundTypes.Dirt,
                 TerrainModifier.PaintType.Cultivate => GroundTypes.Cultivated,
                 TerrainModifier.PaintType.Paved => GroundTypes.Paved,
-                _ => GroundTypes.None
+                _ => WorldGenerator.instance.GetBiome(m_character.transform.position) is Heightmap.Biome.Mountain ? GroundTypes.Snow : GroundTypes.None
             };
         }
 
@@ -257,7 +258,7 @@ public class AirJordan : StatusEffect
     
     private TerrainModifier.PaintType GetPaintType(Character character)
     {
-        var ground = character.GetLastGroundCollider();
+        Collider ground = character.GetLastGroundCollider();
         if (ground == null) return TerrainModifier.PaintType.Reset;
         if (!ground.TryGetComponent(out Heightmap component)) return TerrainModifier.PaintType.Reset;
         
