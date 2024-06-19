@@ -30,7 +30,7 @@ public static class UsefulPaths
             if (!Player.m_localPlayer.GetSEMan().HaveStatusEffect("SE_AirJordan".GetStableHashCode())) return;
             string texts = __instance.m_texts[0].m_text;
     
-            var se = Player.m_localPlayer.GetSEMan().GetStatusEffect("SE_AirJordan".GetStableHashCode());
+            StatusEffect? se = Player.m_localPlayer.GetSEMan().GetStatusEffect("SE_AirJordan".GetStableHashCode());
             
             texts += $"\n<color=orange>Useful Paths: {se.m_name}</color>\n";
             texts += se.GetTooltipString();
@@ -117,6 +117,16 @@ public class AirJordan : StatusEffect
         m_terrain = GetTerrain();
         m_name = m_terrain is GroundTypes.None ? "" : m_terrain.ToString();
         m_icon = UsefulPathsPlugin.m_showIcon.Value is UsefulPathsPlugin.Toggle.On ? m_terrain is GroundTypes.None ? null : SpriteManager.WingedBoots : null;
+    }
+
+    private string GetName()
+    {
+        return Localization.instance.Localize(m_terrain switch
+        {
+            GroundTypes.Paved => "$piece_pavedroad",
+            GroundTypes.Cultivated => "$piece_cultivate",
+            _ => m_terrain.ToString()
+        });
     }
 
     public override string GetTooltipString()
@@ -233,7 +243,7 @@ public class AirJordan : StatusEffect
 
         FootStep.GroundMaterial material = component.GetGroundMaterial(component.m_character, component.m_character.transform.position);
 
-        if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround)
+        if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround or FootStep.GroundMaterial.Ashlands)
         {
             TerrainModifier.PaintType paint = GetPaintType(component.m_character);
             return paint switch
