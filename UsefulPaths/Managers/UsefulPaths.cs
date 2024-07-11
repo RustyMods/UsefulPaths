@@ -239,10 +239,11 @@ public class AirJordan : StatusEffect
 
     private GroundTypes GetTerrain()
     {
+        if (m_character == null) return GroundTypes.None;
+        if (m_character is not Player) return GroundTypes.None;
         if (!m_character.TryGetComponent(out FootStep component)) return GroundTypes.None;
-
+        if (component.m_character == null) return GroundTypes.None;
         FootStep.GroundMaterial material = component.GetGroundMaterial(component.m_character, component.m_character.transform.position);
-
         if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround or FootStep.GroundMaterial.Ashlands)
         {
             TerrainModifier.PaintType paint = GetPaintType(component.m_character);
