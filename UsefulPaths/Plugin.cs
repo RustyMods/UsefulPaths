@@ -18,7 +18,7 @@ namespace UsefulPaths
     public class UsefulPathsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "UsefulPaths";
-        internal const string ModVersion = "1.0.3";
+        internal const string ModVersion = "1.0.5";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -36,22 +36,23 @@ namespace UsefulPaths
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_runStaminaDrain = new();
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_carryWeight = new();
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_jump = new();
+        public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_vagonMass = new();
 
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
         public static ConfigEntry<float> m_update = null!;
         public static ConfigEntry<Toggle> m_enabled = null!;
 
         public static ConfigEntry<Toggle> m_showIcon = null!;
+        public static ConfigEntry<Toggle> m_applyToCreatures = null!;
 
         private void InitConfigs()
         {
-            _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On,
-                "If on, the configuration is locked and can be changed by server admins only.");
+            _serverConfigLocked = config("1 - General", "Lock Configuration", Toggle.On, "If on, the configuration is locked and can be changed by server admins only.");
             _ = ConfigSync.AddLockingConfigEntry(_serverConfigLocked);
-            m_update = config("2 - Settings", "Update Rate", 1f,
-                new ConfigDescription("Set the rate to check terrain", new AcceptableValueRange<float>(1f, 10f)));
+            m_update = config("2 - Settings", "Update Rate", 1f, new ConfigDescription("Set the rate to check terrain", new AcceptableValueRange<float>(1f, 10f)));
             m_enabled = config("2 - Settings", "Enabled", Toggle.On, "If on, plugin is active and enabled");
             m_showIcon = config("2 - Settings", "Display Icon", Toggle.On, "If on, status effect will be displayed on HUD");
+            m_applyToCreatures = config("2 - Settings", "Tames", Toggle.Off, "If on, path effects are applied to tamed creatures");
 
             foreach (GroundTypes type in Enum.GetValues(typeof(GroundTypes)))
             {
@@ -76,6 +77,10 @@ namespace UsefulPaths
                     new ConfigDescription($"Set the jump modifier for {type.ToString()}",
                         new AcceptableValueRange<float>(0f, 10f)));
                 m_jump[type] = jump;
+                ConfigEntry<float> vagonMass = config(type.ToString(), "Cart Modifier", 1f,
+                    new ConfigDescription($"Set the cart mass modifier for {type.ToString()}",
+                        new AcceptableValueRange<float>(0f, 10f)));
+                m_vagonMass[type] = vagonMass;
             }
         }
 
@@ -94,11 +99,7 @@ namespace UsefulPaths
             Managers.UsefulPaths.UpdateStatusEffect(dt);
         }
 
-        private void OnDestroy()
-        {
-            Config.Save();
-        }
-
+        private void OnDestroy() => Config.Save();
         private void SetupWatcher()
         {
             FileSystemWatcher watcher = new(Paths.ConfigPath, ConfigFileName);
@@ -124,9 +125,6 @@ namespace UsefulPaths
                 UsefulPathsLogger.LogError("Please check your config entries for spelling and format!");
             }
         }
-
-
-        #region ConfigOptions
         
         private ConfigEntry<T> config<T>(string group, string name, T value, ConfigDescription description,
             bool synchronizedSetting = true)
@@ -158,8 +156,6 @@ namespace UsefulPaths
             [UsedImplicitly] public string? Category;
             [UsedImplicitly] public Action<ConfigEntryBase>? CustomDrawer;
         }
-
-        #endregion
     }
 
     public static class KeyboardExtensions
