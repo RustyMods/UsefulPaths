@@ -14,11 +14,13 @@ using UsefulPaths.Managers;
 
 namespace UsefulPaths
 {
+    public enum Toggle { On = 1, Off = 0 }
+
     [BepInPlugin(ModGUID, ModName, ModVersion)]
     public class UsefulPathsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "UsefulPaths";
-        internal const string ModVersion = "1.0.5";
+        internal const string ModVersion = "1.0.6";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";
@@ -29,7 +31,6 @@ namespace UsefulPaths
         private static readonly ConfigSync ConfigSync = new(ModGUID)
             { DisplayName = ModName, CurrentVersion = ModVersion, MinimumRequiredVersion = ModVersion };
         private static UsefulPathsPlugin _Plugin = null!;
-        public enum Toggle { On = 1, Off = 0 }
 
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_speed = new();
         public static readonly Dictionary<GroundTypes, ConfigEntry<float>> m_staminaRegen = new();
@@ -40,10 +41,15 @@ namespace UsefulPaths
 
         private static ConfigEntry<Toggle> _serverConfigLocked = null!;
         public static ConfigEntry<float> m_update = null!;
-        public static ConfigEntry<Toggle> m_enabled = null!;
+        private static ConfigEntry<Toggle> m_enabled = null!;
+        private static ConfigEntry<Toggle> m_showIcon = null!;
+        private static ConfigEntry<Toggle> m_applyToCreatures = null!;
 
-        public static ConfigEntry<Toggle> m_showIcon = null!;
-        public static ConfigEntry<Toggle> m_applyToCreatures = null!;
+        public static bool ApplyToCreatures => m_applyToCreatures.Value is Toggle.On;
+        public static bool ShowIcon => m_showIcon.Value is Toggle.On;
+        public static float UpdateInterval => m_update.Value;
+
+        public static bool Enabled => m_enabled.Value is Toggle.On;
 
         private void InitConfigs()
         {
@@ -93,12 +99,6 @@ namespace UsefulPaths
             SetupWatcher();
         }
         
-        private void Update()
-        {
-            float dt = Time.deltaTime;
-            Managers.UsefulPaths.UpdateStatusEffect(dt);
-        }
-
         private void OnDestroy() => Config.Save();
         private void SetupWatcher()
         {
@@ -147,14 +147,6 @@ namespace UsefulPaths
             bool synchronizedSetting = true)
         {
             return config(group, name, value, new ConfigDescription(description), synchronizedSetting);
-        }
-
-        private class ConfigurationManagerAttributes
-        {
-            [UsedImplicitly] public int? Order;
-            [UsedImplicitly] public bool? Browsable;
-            [UsedImplicitly] public string? Category;
-            [UsedImplicitly] public Action<ConfigEntryBase>? CustomDrawer;
         }
     }
 }

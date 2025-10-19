@@ -7,6 +7,8 @@ namespace UsefulPaths.Managers;
 
 public static class UsefulPaths
 {
+    private static readonly int hash = "SE_AirJordan".GetStableHashCode();
+    
     [HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
     private static class Register_AirJordan
     {
@@ -17,7 +19,6 @@ public static class UsefulPaths
             AirJordan airJordan = ScriptableObject.CreateInstance<AirJordan>();
             airJordan.name = "SE_AirJordan";
             airJordan.m_icon = SpriteManager.WingedBoots;
-            
             if (__instance.m_StatusEffects.Contains(airJordan)) return;
             __instance.m_StatusEffects.Add(airJordan);
         }
@@ -29,11 +30,11 @@ public static class UsefulPaths
         [UsedImplicitly]
         private static void Postfix(TextsDialog __instance)
         {
-            if (UsefulPathsPlugin.m_showIcon.Value is UsefulPathsPlugin.Toggle.On) return;
-            if (!Player.m_localPlayer.GetSEMan().HaveStatusEffect("SE_AirJordan".GetStableHashCode())) return;
+            if (UsefulPathsPlugin.ShowIcon) return;
+            if (!Player.m_localPlayer.GetSEMan().HaveStatusEffect(hash)) return;
             string texts = __instance.m_texts[0].m_text;
     
-            StatusEffect? se = Player.m_localPlayer.GetSEMan().GetStatusEffect("SE_AirJordan".GetStableHashCode());
+            StatusEffect? se = Player.m_localPlayer.GetSEMan().GetStatusEffect(hash);
             
             texts += $"\n<color=orange>Useful Paths: {se.m_name}</color>\n";
             texts += se.GetTooltipString();
@@ -42,55 +43,28 @@ public static class UsefulPaths
         }
     }
 
-    private static float m_timer;
-    public static void UpdateStatusEffect(float dt)
+    [HarmonyPatch(typeof(Character), nameof(Character.UpdateGroundContact))]
+    private static class Character_UpdateGroundContact_Patch
     {
-        if (!Player.m_localPlayer) return;
-
-        m_timer += dt;
-        if (m_timer < UsefulPathsPlugin.m_update.Value) return;
-        m_timer = 0.0f;
-        
-        if (Player.m_localPlayer.GetSEMan() is not {} man) return;
-        
-        if (UsefulPathsPlugin.m_enabled.Value is UsefulPathsPlugin.Toggle.Off)
-        {
-            if (man.HaveStatusEffect("SE_AirJordan".GetStableHashCode()))
-            {
-                man.RemoveStatusEffect("SE_AirJordan".GetStableHashCode());
-            }
-        }
-        else
-        {
-            if (man.HaveStatusEffect("SE_AirJordan".GetStableHashCode())) return;
-            man.AddStatusEffect("SE_AirJordan".GetStableHashCode());
-        }
-    }
-
-    [HarmonyPatch(typeof(Character), nameof(Character.Awake))]
-    private static class Character_Awake_Patch
-    {
+        private static float m_timer;
         [UsedImplicitly]
-        private static void Postfix(Character __instance)
+        private static void Postfix(Character __instance, float dt)
         {
-            if (UsefulPathsPlugin.m_applyToCreatures.Value is UsefulPathsPlugin.Toggle.Off) return;
-            if (!__instance || !__instance.IsTamed()) return;
-            if (__instance.GetSEMan() is { } seMan && !seMan.HaveStatusEffect("SE_AirJordan".GetStableHashCode()))
+            if (__instance.GetSEMan() is not { } man) return;
+            m_timer += dt;
+            if (m_timer < UsefulPathsPlugin.UpdateInterval) return;
+            m_timer = 0.0f;
+            if (!UsefulPathsPlugin.Enabled)
             {
-                seMan.AddStatusEffect("SE_AirJordan".GetStableHashCode());
+                if (!man.HaveStatusEffect(hash)) return;
+                man.RemoveStatusEffect(hash);
             }
-        }
-    }
-
-    [HarmonyPatch(typeof(Tameable), nameof(Tameable.Tame))]
-    private static class Tameable_Tame_Patch
-    {
-        [UsedImplicitly]
-        private static void Postfix(Tameable __instance)
-        {
-            if (UsefulPathsPlugin.m_applyToCreatures.Value is UsefulPathsPlugin.Toggle.Off) return;
-            if (__instance.m_character is not { } character || character.GetSEMan() is not {} seMan || seMan.HaveStatusEffect("SE_AirJordan".GetStableHashCode())) return;
-            seMan.AddStatusEffect("SE_AirJordan".GetStableHashCode());
+            else
+            {
+                if (!__instance.IsPlayer() && (!__instance.IsTamed() || !UsefulPathsPlugin.ApplyToCreatures)) return;
+                if (man.HaveStatusEffect(hash)) return;
+                man.AddStatusEffect(hash);
+            }
         }
     }
     
@@ -102,19 +76,37 @@ public static class UsefulPaths
         {
             if (__instance.m_attachedObject == null) return;
             if (!__instance.m_attachedObject.TryGetComponent(out Character character)) return;
-            if (character.GetSEMan().GetStatusEffect("SE_AirJordan".GetStableHashCode()) is not { } se) return;
-            if (se is not AirJordan airJordan) return;
-            airJordan.ModifyVagonMass(__instance.m_baseMass, ref mass);
+            if (character.GetSEMan().GetStatusEffect(hash) is not AirJordan se) return;
+            se.ModifyVagonMass(__instance.m_baseMass, ref mass);
         }
     }
 }
 
 public class AirJordan : StatusEffect
 {
+    private static readonly StringBuilder sb = new();
+
     public FootStep? m_footStep;
     private GroundTypes m_terrain = GroundTypes.None;
     private float m_timer;
 
+    public override void Setup(Character character)
+    {
+        base.Setup(character);
+        m_footStep = character.GetComponent<FootStep>();
+    }
+    
+    public override void UpdateStatusEffect(float dt)
+    {
+        base.UpdateStatusEffect(dt);
+        m_timer += dt;
+        if (m_timer < UsefulPathsPlugin.m_update.Value) return;
+        m_timer = 0.0f;
+        
+        m_terrain = GetTerrain();
+        m_name = m_terrain is GroundTypes.None ? "" : GetName();
+        m_icon = UsefulPathsPlugin.ShowIcon ? GetIcon() : null;
+    }
     public override void ModifySpeed(float baseSpeed, ref float speed, Character character, Vector3 dir)
     {
         if (m_terrain is GroundTypes.None) return;
@@ -156,19 +148,7 @@ public class AirJordan : StatusEffect
         float modifier = GetVagonModifier(m_terrain);
         mass = Mathf.Max(mass * modifier, baseMass);
     }
-
-    public override void UpdateStatusEffect(float dt)
-    {
-        base.UpdateStatusEffect(dt);
-        m_timer += dt;
-        if (m_timer < UsefulPathsPlugin.m_update.Value) return;
-        m_timer = 0.0f;
-        
-        m_terrain = GetTerrain();
-        m_name = m_terrain is GroundTypes.None ? "" : GetName();
-        m_icon = UsefulPathsPlugin.m_showIcon.Value is UsefulPathsPlugin.Toggle.On ? m_terrain is GroundTypes.None ? null : SpriteManager.WingedBoots : null;
-    }
-
+    
     private string GetName()
     {
         return Localization.instance.Localize(m_terrain switch
@@ -180,33 +160,37 @@ public class AirJordan : StatusEffect
             _ => m_terrain.ToString()
         });
     }
-
+    private Sprite? GetIcon() => m_terrain switch
+    {
+        GroundTypes.None => null,
+        GroundTypes.Mud => SpriteManager.mud,
+        GroundTypes.Paved => SpriteManager.paved,
+        GroundTypes.Cultivated => SpriteManager.cultivated,
+        GroundTypes.Wood => SpriteManager.wood,
+        GroundTypes.Stone => SpriteManager.stone,
+        GroundTypes.Dirt => SpriteManager.dirt,
+        GroundTypes.Metal => SpriteManager.metal,
+        _ => SpriteManager.WingedBoots!
+    };
     public override string GetTooltipString()
     {
         if (m_terrain is GroundTypes.None) return "";
-        StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.Append(FormatTooltip("$item_movement_modifier", GetSpeedModifier(m_terrain)));
-        stringBuilder.Append(FormatTooltip("$se_runstamina", GetRunStaminaDrain(m_terrain)));
-        stringBuilder.Append(FormatTooltip("$se_staminaregen", GetStaminaRegen(m_terrain)));
-        stringBuilder.Append(FormatTooltip("$se_max_carryweight", GetMaxCarryWeight(m_terrain)));
-        stringBuilder.Append(FormatTooltip("$se_jumpheight", GetJumpModifier(m_terrain)));
-        stringBuilder.Append(FormatTooltip("Cart Mass", GetVagonModifier(m_terrain)));
-        return Localization.instance.Localize(stringBuilder.ToString());
-    }
+        sb.Clear();
 
-    private static string FormatTooltip(string key, float modifier)
-    {
-        if (key is "$se_max_carryweight")
-        {
-            string symbol = modifier > 0f ? "+" : "";
-            return modifier == 0f ? "" : $"{key}: <color=orange>{symbol}{(int)modifier}\n";
-        }
-        else
-        {
-            float value = modifier * 100 - 100;
-            string symbol = modifier > 1f ? "+" : "";
-            return value == 0 ? "" :  $"{key}: <color=orange>{symbol}{(int)value}%</color>\n";
-        }
+        var speed = GetSpeedModifier(m_terrain) * 100 - 100;
+        var runStam = GetRunStaminaDrain(m_terrain) * 100 - 100;
+        var stamRegen = GetStaminaRegen(m_terrain) * 100 - 100;
+        var carry = GetMaxCarryWeight(m_terrain);
+        var jump = GetJumpModifier(m_terrain) * 100 - 100;
+        var vagon = GetVagonModifier(m_terrain) * 100 - 100;
+        
+        if (speed != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}%</color>\n", "$item_movement_modifier", speed);
+        if (runStam != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}%</color>\n", "$se_runstamina", runStam);
+        if (stamRegen != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}%</color>\n", "$se_staminaregen", stamRegen);
+        if (carry != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}</color>\n", "$se_max_carryweight", carry);
+        if (jump != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}%</color>\n", "$se_jumpheight", jump);
+        if (vagon != 0f) sb.AppendFormat("{0}: <color=orange>{1:+0;-0}%</color>", "$tool_cart Mass", vagon);
+        return sb.ToString();
     }
 
     private static float GetVagonModifier(GroundTypes terrain)
@@ -303,12 +287,6 @@ public class AirJordan : StatusEffect
             GroundTypes.Metal => UsefulPathsPlugin.m_staminaRegen[GroundTypes.Metal].Value,
             _ => 1f
         };
-    }
-
-    public override void Setup(Character character)
-    {
-        base.Setup(character);
-        m_footStep = character.GetComponent<FootStep>();
     }
 
     private GroundTypes GetTerrain()

@@ -1,5 +1,6 @@
 # 1.0.6
 - some optimization
+- better icons
 
 # 1.0.5
 - added cart mass modifier
