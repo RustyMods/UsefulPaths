@@ -1,0 +1,9 @@
+{
+	"name": "UsefulPaths",
+	"version_number": "1.0.6",
+	"website_url": "https://github.com/RustyMods/UsefulPaths",
+	"description": "Modify player speed, jump, carry weight, stamina based on ground terrain",
+	"dependencies": [
+		"denikson-BepInExPack_Valheim-5.4.2333"
+	]
+}

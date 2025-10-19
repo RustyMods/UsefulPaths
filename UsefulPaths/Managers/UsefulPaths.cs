@@ -111,9 +111,9 @@ public static class UsefulPaths
 
 public class AirJordan : StatusEffect
 {
-    private float m_timer;
-    
+    public FootStep? m_footStep;
     private GroundTypes m_terrain = GroundTypes.None;
+    private float m_timer;
 
     public override void ModifySpeed(float baseSpeed, ref float speed, Character character, Vector3 dir)
     {
@@ -194,7 +194,7 @@ public class AirJordan : StatusEffect
         return Localization.instance.Localize(stringBuilder.ToString());
     }
 
-    private string FormatTooltip(string key, float modifier)
+    private static string FormatTooltip(string key, float modifier)
     {
         if (key is "$se_max_carryweight")
         {
@@ -209,7 +209,7 @@ public class AirJordan : StatusEffect
         }
     }
 
-    private float GetVagonModifier(GroundTypes terrain)
+    private static float GetVagonModifier(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -225,7 +225,7 @@ public class AirJordan : StatusEffect
         };
     }
 
-    private float GetSpeedModifier(GroundTypes terrain)
+    private static float GetSpeedModifier(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -241,7 +241,7 @@ public class AirJordan : StatusEffect
         };
     }
     
-    private float GetJumpModifier(GroundTypes terrain)
+    private static float GetJumpModifier(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -257,7 +257,7 @@ public class AirJordan : StatusEffect
         };
     }
     
-    private float GetMaxCarryWeight(GroundTypes terrain)
+    private static float GetMaxCarryWeight(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -273,7 +273,7 @@ public class AirJordan : StatusEffect
         };
     }
 
-    private float GetRunStaminaDrain(GroundTypes terrain)
+    private static float GetRunStaminaDrain(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -289,7 +289,7 @@ public class AirJordan : StatusEffect
         };
     }
 
-    private float GetStaminaRegen(GroundTypes terrain)
+    private static float GetStaminaRegen(GroundTypes terrain)
     {
         return terrain switch
         {
@@ -305,16 +305,20 @@ public class AirJordan : StatusEffect
         };
     }
 
+    public override void Setup(Character character)
+    {
+        base.Setup(character);
+        m_footStep = character.GetComponent<FootStep>();
+    }
+
     private GroundTypes GetTerrain()
     {
-        if (m_character == null) return GroundTypes.None;
-        if (m_character is not Player && UsefulPathsPlugin.m_applyToCreatures.Value is UsefulPathsPlugin.Toggle.Off) return GroundTypes.None;
-        if (!m_character.TryGetComponent(out FootStep component)) return GroundTypes.None;
-        if (component.m_character == null) return GroundTypes.None;
-        FootStep.GroundMaterial material = component.GetGroundMaterial(component.m_character, component.m_character.transform.position);
+        if (m_footStep == null || m_character == null) return GroundTypes.None;
+        
+        FootStep.GroundMaterial material = m_footStep.GetGroundMaterial(m_character, m_character.transform.position);
         if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround or FootStep.GroundMaterial.Ashlands)
         {
-            TerrainModifier.PaintType paint = GetPaintType(component.m_character);
+            TerrainModifier.PaintType paint = GetPaintType(m_character);
             return paint switch
             {   
                 TerrainModifier.PaintType.Dirt => GroundTypes.Dirt,
@@ -335,12 +339,11 @@ public class AirJordan : StatusEffect
         };
     }
     
-    private TerrainModifier.PaintType GetPaintType(Character character)
+    private static TerrainModifier.PaintType GetPaintType(Character character)
     {
         Collider ground = character.GetLastGroundCollider();
-        if (ground == null) return TerrainModifier.PaintType.Reset;
-        if (!ground.TryGetComponent(out Heightmap component)) return TerrainModifier.PaintType.Reset;
-        
+        if (ground == null || !ground.TryGetComponent(out Heightmap component)) return TerrainModifier.PaintType.Reset;
+
         component.WorldToVertexMask(character.transform.position, out int x, out int y);
         Color pixels = component.m_paintMask.GetPixel(x, y);
         if (pixels.r > 0.5) return TerrainModifier.PaintType.Dirt;

@@ -5,7 +5,7 @@ namespace UsefulPaths.Managers;
 
 public static class SpriteManager
 {
-    public static Sprite? WingedBoots = RegisterSprite("icon.png");
+    public static readonly Sprite? WingedBoots = RegisterSprite("icon.png");
     private static Sprite? RegisterSprite(string fileName, string folderName = "icons")
     {
         Assembly assembly = Assembly.GetExecutingAssembly();
