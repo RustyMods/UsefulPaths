@@ -15,6 +15,7 @@ public static class SpriteManager
     public static Sprite? stone;
     public static Sprite? metal;
     public static Sprite? mud;
+    public static Sprite? grausten;
 
     [HarmonyPatch(typeof(ZNetScene), nameof(ZNetScene.Awake))]
     private static class ZNetScene_Awake_Patch
@@ -29,6 +30,7 @@ public static class SpriteManager
             cultivated = __instance.GetPrefab("Cultivator").GetComponent<ItemDrop>().m_itemData.GetIcon();
             wood = __instance.GetPrefab("wood_floor").GetComponent<Piece>().m_icon;
             stone = __instance.GetPrefab("stone_floor_2x2").GetComponent<Piece>().m_icon;
+            grausten = __instance.GetPrefab("Piece_grausten_floor_2x2").GetComponent<Piece>().m_icon;
         }
     }
     private static Sprite? RegisterSprite(string fileName, string folderName = "icons")

@@ -1,6 +1,6 @@
 {
 	"name": "UsefulPaths",
-	"version_number": "1.0.6",
+	"version_number": "1.0.8",
 	"website_url": "https://github.com/RustyMods/UsefulPaths",
 	"description": "Modify player speed, jump, carry weight, stamina based on ground terrain",
 	"dependencies": [

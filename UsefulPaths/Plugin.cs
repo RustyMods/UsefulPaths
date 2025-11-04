@@ -20,7 +20,7 @@ namespace UsefulPaths
     public class UsefulPathsPlugin : BaseUnityPlugin
     {
         internal const string ModName = "UsefulPaths";
-        internal const string ModVersion = "1.0.6";
+        internal const string ModVersion = "1.0.8";
         internal const string Author = "RustyMods";
         private const string ModGUID = Author + "." + ModName;
         private static readonly string ConfigFileName = ModGUID + ".cfg";

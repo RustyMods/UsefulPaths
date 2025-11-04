@@ -7,7 +7,7 @@ namespace UsefulPaths.Managers;
 
 public static class UsefulPaths
 {
-    private static readonly int hash = "SE_AirJordan".GetStableHashCode();
+    private static int hash;
     
     [HarmonyPatch(typeof(ObjectDB), nameof(ObjectDB.Awake))]
     private static class Register_AirJordan
@@ -19,6 +19,7 @@ public static class UsefulPaths
             AirJordan airJordan = ScriptableObject.CreateInstance<AirJordan>();
             airJordan.name = "SE_AirJordan";
             airJordan.m_icon = SpriteManager.WingedBoots;
+            hash = airJordan.NameHash();
             if (__instance.m_StatusEffects.Contains(airJordan)) return;
             __instance.m_StatusEffects.Add(airJordan);
         }
@@ -43,8 +44,8 @@ public static class UsefulPaths
         }
     }
 
-    [HarmonyPatch(typeof(Character), nameof(Character.UpdateGroundContact))]
-    private static class Character_UpdateGroundContact_Patch
+    [HarmonyPatch(typeof(Character), nameof(Character.CustomFixedUpdate))]
+    private static class Character_CustomFixedUpdate_Patch
     {
         private static float m_timer;
         [UsedImplicitly]
@@ -86,24 +87,16 @@ public class AirJordan : StatusEffect
 {
     private static readonly StringBuilder sb = new();
 
-    public FootStep? m_footStep;
     private GroundTypes m_terrain = GroundTypes.None;
     private float m_timer;
-
-    public override void Setup(Character character)
-    {
-        base.Setup(character);
-        m_footStep = character.GetComponent<FootStep>();
-    }
-    
     public override void UpdateStatusEffect(float dt)
     {
         base.UpdateStatusEffect(dt);
         m_timer += dt;
         if (m_timer < UsefulPathsPlugin.m_update.Value) return;
         m_timer = 0.0f;
-        
-        m_terrain = GetTerrain();
+
+        m_terrain = GetGround();
         m_name = m_terrain is GroundTypes.None ? "" : GetName();
         m_icon = UsefulPathsPlugin.ShowIcon ? GetIcon() : null;
     }
@@ -157,6 +150,7 @@ public class AirJordan : StatusEffect
             GroundTypes.Cultivated => "$piece_cultivate",
             GroundTypes.Wood => "$item_wood",
             GroundTypes.Stone => "$item_stone",
+            GroundTypes.Grausten => "$item_grausten",
             _ => m_terrain.ToString()
         });
     }
@@ -170,6 +164,7 @@ public class AirJordan : StatusEffect
         GroundTypes.Stone => SpriteManager.stone,
         GroundTypes.Dirt => SpriteManager.dirt,
         GroundTypes.Metal => SpriteManager.metal,
+        GroundTypes.Grausten => SpriteManager.grausten,
         _ => SpriteManager.WingedBoots!
     };
     public override string GetTooltipString()
@@ -289,49 +284,52 @@ public class AirJordan : StatusEffect
         };
     }
 
-    private GroundTypes GetTerrain()
+    private static readonly int m_pieceLayer = LayerMask.NameToLayer("piece");
+    private GroundTypes GetGround()
     {
-        if (m_footStep == null || m_character == null) return GroundTypes.None;
-        
-        FootStep.GroundMaterial material = m_footStep.GetGroundMaterial(m_character, m_character.transform.position);
-        if (material is FootStep.GroundMaterial.Grass or FootStep.GroundMaterial.GenericGround or FootStep.GroundMaterial.Ashlands)
+        if (m_character == null || m_character.InWater() || m_character.InLiquid()) return GroundTypes.None;
+
+        Collider? collider = m_character.GetLastGroundCollider();
+        if (collider == null) return GroundTypes.None;
+
+        if (collider.TryGetComponent(out Heightmap heightmap))
         {
-            TerrainModifier.PaintType paint = GetPaintType(m_character);
-            return paint switch
-            {   
-                TerrainModifier.PaintType.Dirt => GroundTypes.Dirt,
-                TerrainModifier.PaintType.Cultivate => GroundTypes.Cultivated,
-                TerrainModifier.PaintType.Paved => GroundTypes.Paved,
-                _ => WorldGenerator.instance.GetBiome(m_character.transform.position) is Heightmap.Biome.Mountain ? GroundTypes.Snow : GroundTypes.None
+            Vector3 point = m_character.transform.position;
+            return heightmap.GetBiome(point) switch
+            {
+                Heightmap.Biome.Swamp => GroundTypes.Mud,
+                Heightmap.Biome.Mountain or Heightmap.Biome.DeepNorth => GroundTypes.Snow,
+                _ => GetGroundPaint()
             };
+
+            GroundTypes GetGroundPaint()
+            {
+                heightmap.WorldToVertexMask(point, out int x, out int y);
+                Color pixels = heightmap.m_paintMask.GetPixel(x, y);
+                if (pixels.r > 0.5) return GroundTypes.Dirt;
+                if (pixels.g > 0.5) return GroundTypes.Cultivated;
+                if (pixels.b > 0.5) return GroundTypes.Paved;
+                return GroundTypes.None;
+            }
         }
 
-        return material switch
+        if (collider.gameObject.layer != m_pieceLayer) return GroundTypes.None;
+        
+        WearNTear? wear = collider.GetComponentInParent<WearNTear>();
+        if (wear == null) return GroundTypes.None;
+
+        return wear.m_materialType switch
         {
-            FootStep.GroundMaterial.Stone => GroundTypes.Stone,
-            FootStep.GroundMaterial.Wood => GroundTypes.Wood,
-            FootStep.GroundMaterial.Snow => GroundTypes.Snow,
-            FootStep.GroundMaterial.Mud => GroundTypes.Mud,
-            FootStep.GroundMaterial.Metal => GroundTypes.Metal,
+            WearNTear.MaterialType.Stone or WearNTear.MaterialType.Marble or WearNTear.MaterialType.Ancient => GroundTypes.Stone,
+            WearNTear.MaterialType.Wood or WearNTear.MaterialType.HardWood => GroundTypes.Wood,
+            WearNTear.MaterialType.Iron => GroundTypes.Metal,
+            WearNTear.MaterialType.Ashstone => GroundTypes.Grausten,
             _ => GroundTypes.None
         };
-    }
-    
-    private static TerrainModifier.PaintType GetPaintType(Character character)
-    {
-        Collider ground = character.GetLastGroundCollider();
-        if (ground == null || !ground.TryGetComponent(out Heightmap component)) return TerrainModifier.PaintType.Reset;
-
-        component.WorldToVertexMask(character.transform.position, out int x, out int y);
-        Color pixels = component.m_paintMask.GetPixel(x, y);
-        if (pixels.r > 0.5) return TerrainModifier.PaintType.Dirt;
-        if (pixels.g > 0.5) return TerrainModifier.PaintType.Cultivate;
-        if (pixels.b > 0.5) return TerrainModifier.PaintType.Paved;
-        return TerrainModifier.PaintType.Reset;
     }
 }
 
 public enum GroundTypes
 {
-    None, Paved, Dirt, Cultivated, Mud, Snow, Metal, Stone, Wood
+    None, Paved, Dirt, Cultivated, Mud, Snow, Metal, Stone, Wood, Grausten
 }

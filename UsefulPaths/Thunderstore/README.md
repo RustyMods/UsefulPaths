@@ -12,6 +12,7 @@ Mud
 Wood
 Stone
 Metal
+Grausten
 ```
 ## Configurations
 

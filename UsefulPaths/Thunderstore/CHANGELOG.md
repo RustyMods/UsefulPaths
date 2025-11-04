@@ -1,3 +1,9 @@
+# 1.0.8
+- added grausten material type
+
+# 1.0.7
+- fixed status effect not applying on players
+
 # 1.0.6
 - some optimization
 - better icons
