@@ -295,10 +295,22 @@ public class AirJordan : StatusEffect
         if (collider.TryGetComponent(out Heightmap heightmap))
         {
             Vector3 point = m_character.transform.position;
+
+            if (TerrainHoe_API.IsLoaded())
+            {
+                return TerrainHoe_API.GetBiome(heightmap, point) switch
+                {
+                    Heightmap.Biome.Swamp => GroundTypes.Mud,
+                    Heightmap.Biome.Mountain or Heightmap.Biome.DeepNorth or (Heightmap.Biome.Mountain | Heightmap.Biome.DeepNorth) => GroundTypes.Snow,
+                    _ => GetGroundPaint()
+                };
+            }
+            
             return heightmap.GetBiome(point) switch
             {
                 Heightmap.Biome.Swamp => GroundTypes.Mud,
-                Heightmap.Biome.Mountain or Heightmap.Biome.DeepNorth => GroundTypes.Snow,
+                Heightmap.Biome.Mountain or Heightmap.Biome.DeepNorth or (Heightmap.Biome.Mountain |
+                                                                          Heightmap.Biome.DeepNorth) => GroundTypes.Snow,
                 _ => GetGroundPaint()
             };
 
@@ -307,8 +319,8 @@ public class AirJordan : StatusEffect
                 heightmap.WorldToVertexMask(point, out int x, out int y);
                 Color pixels = heightmap.m_paintMask.GetPixel(x, y);
                 if (pixels.r > 0.5) return GroundTypes.Dirt;
+                if (pixels.b > 0.3) return GroundTypes.Paved;
                 if (pixels.g > 0.5) return GroundTypes.Cultivated;
-                if (pixels.b > 0.5) return GroundTypes.Paved;
                 return GroundTypes.None;
             }
         }

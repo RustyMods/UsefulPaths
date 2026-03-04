@@ -102,6 +102,7 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
+        <Compile Include="API\TerrainHoe_API.cs" />
         <Compile Include="Managers\SpriteManager.cs" />
         <Compile Include="Managers\UsefulPaths.cs" />
         <Compile Include="Plugin.cs" />

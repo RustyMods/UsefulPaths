@@ -1,3 +1,7 @@
+# 1.0.9
+- added TerrainHoe API
+- lowered pavement threshold for compatibility with modded Terrain modifications
+
 # 1.0.8
 - added grausten material type
 
